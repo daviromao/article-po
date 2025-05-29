@@ -1,0 +1,9 @@
+venv/
+.vscode
+in
+in_old
+gen
+exato
+heuristico
+entrada.txt
+grafico.png
