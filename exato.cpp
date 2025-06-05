@@ -5,11 +5,6 @@
 
 using namespace std;
 #define IloBigM 1000000000
-/*
-Dado um grafo G = (V , E), determinar a clique máxima de G, ou seja, o maior
-subgrafo completo em G
-*/
-
 int main() {
     int N = 0, M = 0, memory=0, core=0;
     cin>> N >> M >> memory >> core;
@@ -106,8 +101,10 @@ int main() {
         cplex.setWarning(env.getNullStream());
         cplex.setError(env.getNullStream());
         cplex.setParam(IloCplex::Param::MIP::Display, 0);
+
         if (cplex.solve()) {
             cout << cplex.getObjValue() << endl;
+            // Omitmos embaixo a solucação e printamos apenas o valo final
             // vector<tuple<int, int, int, int, int>> executionOrder;
 
             // for (int i = 0; i < N; i++) {

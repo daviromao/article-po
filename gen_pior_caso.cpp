@@ -2,23 +2,14 @@
 using namespace std;
 mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
 
+int main() {
+    int N = 200; 
+    int M = 30;
+    int memory = 5;
+    int core = 5;
+    int K = N-1;
 
-int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        cerr << "Uso: " << argv[0] << " <N>\n";
-        return 1;
-    }
-
-    int N = atoi(argv[1]); 
-    int M = max(2, (int) (N*0.1));
-    int memory = rng() % 4 + 1;
-    int core = rng() % 4 + 1;
-    int K = min(rng() % (N*(N-1))/2 + 1, (ulong) (N*(N-1))/2);
-    K = max(min(K, 500), 1);
-    cout << N << " " << M << " " << memory << " " << core << "\n";
-
-    uniform_int_distribution<int> dMi(1, 10), dCi(1, 10);
-
+    uniform_int_distribution<int> dMi(20, 500), dCi(20, 500);
 
     for (int i = 0; i < N; ++i) {
         int mi = dMi(rng);

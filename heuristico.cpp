@@ -12,6 +12,7 @@ struct Tarefa {
 int N, M, memory, core, K;
 vector<Tarefa> tarefas;
 vector<pair<int, int>> precedencias;
+vector<vector<int>> preced;
 mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
 
 vector<int> topo_sort() {
@@ -38,77 +39,6 @@ vector<int> topo_sort() {
     return ordem;
 }
 
-bool conflito(const Tarefa& a, const Tarefa& b, int sa, int sb) {
-    int da = (sa == 1 ? a.ci : a.mi);
-    int db = (sb == 1 ? b.ci : b.mi);
-    if(sa == 1 && sb != 1) {
-        return false;
-    }else if(sa != 1 && sb == 1) {
-        return false;
-    }
-    if (a.npu != b.npu) return false;
-    if (a.recurso[sa] != b.recurso[sb]) return false;
-
-    int ta = a.start[sa];
-    int tb = b.start[sb];
-
-    return !(ta + da <= tb || tb + db <= ta);
-}
-
-bool viavel(const Tarefa& nova, const vector<Tarefa>& escalonadas, const vector<bool>& escalonada) {
-    for (int id = 0; id < (int)escalonadas.size(); id++) {
-        if (escalonada[id] == false) continue;
-        auto t = escalonadas[id];
-        if (t.id == nova.id) continue; // ignora
-        for (int i = 0; i < 3; i++)
-            for (int j = 0; j < 3; j++)
-                if (conflito(nova, t, i, j)){
-                    cout << "Conflito entre tarefa " << nova.id << " e tarefa " << t.id << endl;
-                    // Exibir detalhes do conflito
-                    cout << "Tarefa " << nova.id << ": start[" << i << "] = " << nova.start[i] 
-                         << ", npu = " << nova.npu 
-                         << ", recurso[" << i << "] = " << nova.recurso[i] 
-                         << ", mi = " << nova.mi 
-                         << ", ci = " << nova.ci << endl;
-                    cout << "Tarefa " << t.id << ": start[" << j << "] = " << t.start[j]
-                         << ", npu = " << t.npu 
-                         << ", recurso[" << j << "] = " << t.recurso[j] 
-                         << ", mi = " << t.mi 
-                         << ", ci = " << t.ci << endl;
-                    return false;
-                }
-    }
-
-    if (nova.start[0] + nova.mi > nova.start[1]) {
-        cout << "Tarefa " << nova.id << " não respeita a precedência entre MI e CI." << endl;
-        return false;
-    }
-    if (nova.start[1] + nova.ci > nova.start[2]) {
-        cout << "Tarefa " << nova.id << " não respeita a precedência entre CI e MI." << endl;
-        return false;
-    }
-
-    // verifica as precedências
-    for (auto [u, v] : precedencias) {
-        if (v == nova.id) {
-            // v depende de u
-            auto& ant = escalonadas[u];
-            if (ant.start[2] + ant.mi > nova.start[2]) {
-                cout << "quebrou com " << nova.id << " não respeita a precedência com a tarefa " << u << "." << endl;
-                return false;
-            }
-        }
-    }
-    for (int i = 0; i < 3; i++) {
-        if (nova.start[i] < 0) {
-            cout << "quebrou com " << nova.id << " tem início negativo no step " << i << "." << endl;
-            return false;
-        }
-    }
-
-    return true;
-}
-
 int avaliar(const vector<Tarefa>& sol) {
     int cmax = 0;
     for (auto& t : sol)
@@ -133,57 +63,6 @@ int encontrarInicioEOcupar(set<Intervalo>& s, int duracao, int earliest) {
     exit(1);
 }
 
-
-// void busca_local(vector<Tarefa>& sol) {
-//     bool melhorou = true;
-//     int best = avaliar(sol);
-//     while (melhorou) {
-//         melhorou = false;
-//         for (auto& t : sol) {
-//             // Tenta melhorar a NPU
-//             for (int nova_npu = 0; nova_npu < M; nova_npu++) {
-//                 if (nova_npu == t.npu) continue;
-                
-//                 int old_npu = t.npu;
-//                 t.npu = nova_npu;
-//                 if (viavel(t, sol)) {
-//                     int novo_cmax = avaliar(sol);
-//                     if (novo_cmax < best) {
-//                         melhorou = true;
-//                         best = novo_cmax;
-//                     } else {
-//                         t.npu = old_npu;
-//                     }
-//                 } else {
-//                     t.npu = old_npu;
-//                 }
-//             }
-
-//             // Tenta melhorar os recursos
-//             for (int s = 0; s < 3; s++) {
-//                 int limite = (s == 1) ? core : memory;
-//                 for (int novo_rec = 0; novo_rec < limite; novo_rec++) {
-//                     if (novo_rec == t.recurso[s]) continue;
-
-//                     int old_rec = t.recurso[s];
-//                     t.recurso[s] = novo_rec;
-//                     if (viavel(t, sol)) {
-//                         int novo_cmax = avaliar(sol);
-//                         if (novo_cmax < best) {
-//                             melhorou = true;
-//                             best = novo_cmax;
-//                         } else {
-//                             t.recurso[s] = old_rec;
-//                         }
-//                     } else {
-//                         t.recurso[s] = old_rec;
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
-
 vector<Tarefa> gerar_solucao() {
     vector<Tarefa> sol(N);
     vector<bool> preenchido(N, false);
@@ -200,7 +79,9 @@ vector<Tarefa> gerar_solucao() {
             livreCPU[{npu, cor}].insert({0, INT_MAX});
         }
     }
-    
+
+    uniform_int_distribution<int> memDist(0, memory - 1);
+    uniform_int_distribution<int> coreDist(0, core - 1);
 
     for (int i : ordem) {
         Tarefa t;
@@ -208,23 +89,15 @@ vector<Tarefa> gerar_solucao() {
         t.mi = tarefas[i].mi;
         t.ci = tarefas[i].ci;
         t.npu = rng() % M;
-        uniform_int_distribution<int> memDist(0, memory - 1);
-        uniform_int_distribution<int> coreDist(0, core - 1);
 
         t.recurso = {memDist(rng), coreDist(rng), memDist(rng)};
 
         t.start = {0, 0, 0};
 
         int inicio = 0;
-        for (auto [u, v] : precedencias) {
-            if (v == i) {
-                if (!preenchido[u]) {
-                    cerr << "Erro: tarefa " << u << " ainda não escalonada\n";
-                    exit(1);
-                }
-                auto& ant = sol[u];
-                inicio = max(inicio, ant.start[2] + ant.mi);
-            }
+        for (auto u : preced[i]) {
+            auto& ant = sol[u];
+            inicio = max(inicio, ant.start[2] + ant.mi);
         }
 
         auto& intervalsM1 = livreMem[{t.npu, t.recurso[0]}];
@@ -236,10 +109,6 @@ vector<Tarefa> gerar_solucao() {
         int t2 = encontrarInicioEOcupar(intervalsM2, t.mi, t1 + t.ci);
 
         t.start = {t0, t1, t2};
-        if(!viavel(t, sol, preenchido)) {
-            cout << "Solução inviável para a tarefa " << t.id << endl;
-            exit(1);
-        }
         sol[i] = t;
         preenchido[i] = true;
     }
@@ -264,10 +133,12 @@ int main(int argc, char* argv[]) {
 
     cin >> K;
     precedencias.resize(K);
+    preced.resize(N);
     for (int i = 0; i < K; i++) {
         int u, v;
         cin >> u >> v;
         precedencias[i] = {u - 1, v - 1};
+        preced[v - 1].push_back(u - 1);
     }
 
     int best = INT_MAX;
@@ -275,7 +146,7 @@ int main(int argc, char* argv[]) {
 
     for (int it = 0; it < inters; it++) {
         auto sol = gerar_solucao();
-        // busca local
+        // removemos o passo da busca local
         int cmax = avaliar(sol);
         if (cmax < best) {
             best = cmax;
@@ -284,10 +155,10 @@ int main(int argc, char* argv[]) {
     }
 
     cout << best << endl;
-    // for (auto& t : melhor) {
-    //     for (int s = 0; s < 3; s++) {
-    //         cout << t.start[s] << " " << t.id + 1 << " " << s + 1 << " "
-    //              << t.npu + 1 << " " << t.recurso[s] + 1 << "\n";
-    //     }
-    // }
+    for (auto& t : melhor) {
+        for (int s = 0; s < 3; s++) {
+            cout << t.start[s] << " " << t.id + 1 << " " << s + 1 << " "
+                 << t.npu + 1 << " " << t.recurso[s] + 1 << "\n";
+        }
+    }
 }

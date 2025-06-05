@@ -1,9 +1,8 @@
 import matplotlib.pyplot as plt
 
-# Carrega tarefas da saída
-with open("saida.txt") as f:
+with open("out") as f:
     linhas = [line.strip().split() for line in f if line.strip()]
-linhas = linhas[1:]  # Remove o cabeçalho
+linhas = linhas[1:]
 tarefas = []
 
 for t, tid, step, npu, rec in linhas:
@@ -16,7 +15,6 @@ for t, tid, step, npu, rec in linhas:
         "rec": int(rec)
     })
 
-# Lê dados de entrada
 with open("in") as f:
     N, M, memory, core = map(int, f.readline().split())
     mi_ci = {}
@@ -24,22 +22,18 @@ with open("in") as f:
         mi, ci = map(int, f.readline().split())
         mi_ci[i + 1] = (mi, ci)
 
-# Define duração das tarefas
 for t in tarefas:
     mi, ci = mi_ci[t["id"]]
     t["dur"] = mi if t["step"] in [1, 3] else ci
 
-# Posição Y no gráfico
 def posicao_y(npu, step, rec):
     if step in [1, 3]:
         return (npu - 1) * (memory + core) + (rec - 1)
     else:
         return (npu - 1) * (memory + core) + memory + (rec - 1)
 
-# Cores por step
-cores = ['#ff9999', '#99ccff', '#99ff99']  # azul, verde, rosa
+cores = ['#ff9999', '#99ccff', '#99ff99']
 
-# Criando gráfico
 fig, ax = plt.subplots(figsize=(12, 6))
 
 for t in tarefas:
@@ -60,7 +54,6 @@ for t in tarefas:
         color='black'
     )
 
-# Rótulos de Y dinâmicos
 yticks = []
 ylabels = []
 for npu in range(1, M + 1):
@@ -82,4 +75,3 @@ ax.grid(axis='x', linestyle=':', color='gray')
 
 plt.tight_layout()
 plt.savefig("grafico.png", dpi=300)
-# plt.show()  # Ative se estiver usando notebook ou modo interativo
